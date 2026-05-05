@@ -1,0 +1,21 @@
+farmer_name,farmer_code,date,shift,fat,snf,ph,acidity,temperature,specific_gravity,cob_test,alcohol_test,organoleptic,sediment_test,mbrt,raw_milk_temp,quantity
+Ramu Kumar,F001,2024-07-01,morning,3.35,8.40,6.65,0.12,8.5,1.030,negative,negative,normal,clean,4.5,32,45.0
+Suresh Patel,F002,2024-07-01,morning,3.10,8.20,6.60,0.11,9.0,1.027,negative,negative,normal,clean,3.5,30,38.5
+Lakshmi Devi,F003,2024-07-01,morning,3.50,8.50,6.80,0.15,10.0,1.032,negative,negative,normal,clean,5.0,35,52.0
+Mohan Singh,F004,2024-07-01,morning,2.90,8.10,6.50,0.09,12.5,1.026,negative,negative,normal,clean,2.5,31,29.0
+Raj Farmer,F005,2024-07-01,morning,3.30,8.40,6.70,0.13,7.0,1.031,negative,negative,normal,clean,4.0,33,41.0
+Sunita Bai,F006,2024-07-01,morning,3.40,8.35,6.60,0.14,8.0,1.029,negative,negative,normal,clean,3.8,34,36.0
+Gopal Reddy,F007,2024-07-01,morning,3.20,8.30,6.55,0.10,9.5,1.028,positive,negative,normal,clean,3.5,32,44.0
+Meena Kumari,F008,2024-07-01,morning,3.45,8.45,6.75,0.12,8.5,1.031,negative,negative,normal,clean,4.2,30,48.0
+Vijay Kumar,F009,2024-07-01,morning,3.38,8.38,6.68,0.13,7.5,1.030,negative,negative,normal,dirty,3.6,31,39.5
+Anitha Reddy,F010,2024-07-01,morning,3.25,8.32,6.62,0.11,10.5,1.029,negative,negative,normal,clean,2.8,29,42.0
+Ramu Kumar,F001,2024-07-01,evening,3.33,8.41,6.64,0.12,9.0,1.030,negative,negative,normal,clean,4.3,33,40.0
+Suresh Patel,F002,2024-07-01,evening,3.60,8.55,6.85,0.16,8.5,1.033,negative,negative,normal,clean,3.2,30,35.0
+Chandran,F011,2024-07-01,evening,3.28,8.33,6.63,0.12,7.0,1.029,negative,negative,abnormal,clean,4.0,32,50.0
+Priya Nair,F012,2024-07-01,evening,3.35,8.40,6.68,0.13,8.0,1.030,negative,negative,normal,clean,1.5,31,43.0
+Ramesh Iyer,F013,2024-07-01,evening,3.40,8.38,6.66,0.12,9.5,1.031,negative,positive,normal,clean,4.5,34,37.5
+Kavitha,F014,2024-07-01,evening,3.32,8.36,6.64,0.11,8.5,1.030,negative,negative,normal,clean,3.7,33,46.0
+Bala Murugan,F015,2024-07-01,evening,3.36,8.42,6.70,0.13,7.5,1.030,negative,negative,normal,clean,4.1,30,55.0
+Saroja Devi,F016,2024-07-01,evening,3.18,8.28,6.58,0.09,14.0,1.027,negative,negative,normal,clean,2.4,38,28.0
+Thirumal,F017,2024-07-01,evening,3.44,8.44,6.76,0.14,8.0,1.031,negative,negative,normal,clean,5.2,32,60.0
+Velu Pillai,F018,2024-07-01,evening,3.30,8.35,6.65,0.12,9.0,1.029,negative,negative,normal,clean,3.9,31,42.5
