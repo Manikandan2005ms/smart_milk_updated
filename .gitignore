@@ -1,10 +1,10 @@
 # Python
-backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/.env
-backend/uploads/*
-!backend/uploads/.gitkeep
+**/venv/
+**/__pycache__/
+**/*.pyc
+.env
+**/uploads/*
+!**/uploads/.gitkeep
 
 # Node
 frontend/node_modules/
