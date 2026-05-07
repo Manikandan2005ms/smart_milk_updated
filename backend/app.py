@@ -11,6 +11,9 @@ from werkzeug.security import generate_password_hash
 from config import get_config
 from models.database import db, User, Setting
 
+
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
@@ -77,8 +80,13 @@ def create_app():
 
     # ── DB init ─────────────────────────────────────────────────────────────
     with app.app_context():
-        db.create_all()
-        _seed_defaults()
+        try:
+            db.create_all()
+            _seed_defaults()
+            logger.info("✓ Database initialized successfully.")
+        except Exception as e:
+            logger.critical(f"FATAL: Could not connect to the database. Please verify your MySQL credentials and host. Error: {e}")
+            raise
 
     return app
 

@@ -15,14 +15,17 @@ class Config:
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
     # ── Database ───────────────────────────────────────────
-    DB_HOST = os.getenv("DB_HOST", "localhost")
-    DB_PORT = int(os.getenv("DB_PORT", 3306))
-    DB_NAME = os.getenv("DB_NAME", "smart_milk_db")
-    DB_USER = os.getenv("DB_USER", "root")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    DB_HOST = os.getenv("MYSQLHOST")
+    DB_PORT = os.getenv("MYSQLPORT", "3306")
+    DB_NAME = os.getenv("MYSQLDATABASE")
+    DB_USER = os.getenv("MYSQLUSER")
+    DB_PASSWORD = os.getenv("MYSQLPASSWORD", "")
+
+    if not all([DB_HOST, DB_NAME, DB_USER]):
+        raise ValueError("CRITICAL: Missing required database environment variables (MYSQLHOST, MYSQLDATABASE, MYSQLUSER). Please check your Railway variables or .env file.")
 
     _encoded_user = quote_plus(DB_USER)
-    _encoded_password = quote_plus(DB_PASSWORD)
+    _encoded_password = quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
     SQLALCHEMY_DATABASE_URI = (
         f"mysql+pymysql://{_encoded_user}:{_encoded_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         "?charset=utf8mb4"
@@ -36,7 +39,7 @@ class Config:
     }
 
     # ── JWT ────────────────────────────────────────────────
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-milk-secret-2024-yR7&nQ")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "smartmilksecret")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
