@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 
 from models.database import db, MilkRecord, Setting, UploadBatch
 from services.decision_engine import MilkSample, get_engine_with_db_settings
-from services.file_processor import parse_file
+from services.parsers import parse_file
 from services.ml_service import MLService
 from routes.predict import _f, _parse_date, _get_or_create_farmer, _update_farmer_stats
 
@@ -20,7 +20,7 @@ upload_bp = Blueprint("upload", __name__)
 logger = logging.getLogger(__name__)
 
 
-ALLOWED_EXT = {"xlsx", "csv", "xls"}
+ALLOWED_EXT = {"xlsx", "csv", "xls", "pdf", "txt"}
 
 
 def _allowed(filename: str) -> bool:
@@ -37,7 +37,7 @@ def upload():
 
     file = request.files["file"]
     if not file.filename or not _allowed(file.filename):
-        return jsonify({"error": "Only .xlsx, .xls, .csv files allowed"}), 400
+        return jsonify({"error": "Only .xlsx, .xls, .csv, .pdf, .txt files allowed"}), 400
 
     file_bytes = file.read()
     if len(file_bytes) > 50 * 1024 * 1024:
@@ -75,7 +75,9 @@ def upload():
         shift=shift_guess.lower(),
         uploaded_by=uid
     )
-    db.session.add(upload_batch)
+    preview_mode = request.form.get("preview") == "true"
+    if not preview_mode:
+        db.session.add(upload_batch)
 
     for row in rows:
         sample = MilkSample(
@@ -130,8 +132,9 @@ def upload():
             session_name=session_name,
             entered_by=uid,
         )
-        db.session.add(rec)
-        _update_farmer_stats(farmer_id, result.decision, result.fraud_risk)
+        if not preview_mode:
+            db.session.add(rec)
+            _update_farmer_stats(farmer_id, result.decision, result.fraud_risk)
 
         if result.decision == "accept":
             accepted += 1
@@ -155,7 +158,8 @@ def upload():
     upload_batch.rejected = rejected
     upload_batch.fraud_alerts = fraud_alerts
 
-    db.session.commit()
+    if not preview_mode:
+        db.session.commit()
 
     return jsonify({
         "batch_id": batch_id,

@@ -78,147 +78,103 @@ class DecisionEngine:
         minor_warnings = []
         flags = {}
 
-        # ── 1. FAT ─────────────────────────────────────────────
+        # ── 1. FAT (CORE) ─────────────────────────────────────────────
         if sample.fat is not None:
             if not (self.t["fat_min"] <= sample.fat <= self.t["fat_max"]):
-                msg = (
-                    f"FAT {sample.fat:.2f}% outside acceptable range "
-                    f"({self.t['fat_min']}–{self.t['fat_max']}%) — "
-                    "Possible Adulteration"
-                )
-                minor_warnings.append(msg)
+                critical_failures.append(f"Low/High Fat % ({sample.fat:.2f}%)")
                 flags["fat"] = "fail"
             else:
                 flags["fat"] = "pass"
 
-        # ── 2. SNF ─────────────────────────────────────────────
+        # ── 2. SNF (CORE) ─────────────────────────────────────────────
         if sample.snf is not None:
             if not (self.t["snf_min"] <= sample.snf <= self.t["snf_max"]):
-                msg = (
-                    f"SNF {sample.snf:.2f}% outside acceptable range "
-                    f"({self.t['snf_min']}–{self.t['snf_max']}%) — "
-                    "Added Water Suspected"
-                )
-                minor_warnings.append(msg)
+                critical_failures.append(f"Low/High SNF % ({sample.snf:.2f}%)")
                 flags["snf"] = "fail"
             else:
                 flags["snf"] = "pass"
 
-        # ── 3. pH ──────────────────────────────────────────────
+        # ── 3. pH (CORE) ──────────────────────────────────────────────
         if sample.ph is not None:
             if not (self.t["ph_min"] <= sample.ph <= self.t["ph_max"]):
-                msg = (
-                    f"pH {sample.ph:.2f} outside acceptable range "
-                    f"({self.t['ph_min']}–{self.t['ph_max']}) — "
-                    "Possible Spoilage"
-                )
-                minor_warnings.append(msg)
+                critical_failures.append(f"pH Abnormal ({sample.ph:.2f})")
                 flags["ph"] = "fail"
             else:
                 flags["ph"] = "pass"
 
-        # ── 4. Acidity ─────────────────────────────────────────
+        # ── 4. Acidity (CORE) ─────────────────────────────────────────
         if sample.acidity is not None:
             if not (self.t["acidity_min"] <= sample.acidity <= self.t["acidity_max"]):
-                msg = (
-                    f"Acidity {sample.acidity:.3f}% LA outside acceptable range "
-                    f"({self.t['acidity_min']}–{self.t['acidity_max']}% LA) — "
-                    "Souring Detected"
-                )
-                minor_warnings.append(msg)
+                critical_failures.append(f"Acidity High/Abnormal ({sample.acidity:.3f}%)")
                 flags["acidity"] = "fail"
             else:
                 flags["acidity"] = "pass"
 
-        # ── 5. Temperature ─────────────────────────────────────
+        # ── 5. Temperature (CORE) ─────────────────────────────────────
         if sample.temperature is not None:
             if sample.temperature <= self.t["temp_acceptable"]:
                 flags["temperature"] = "pass"
             else:
-                msg = (
-                    f"Temperature {sample.temperature:.1f}°C — "
-                    f"Above acceptable limit (>{self.t['temp_acceptable']}°C) — "
-                    "Risk of Spoilage"
-                )
-                minor_warnings.append(msg)
+                critical_failures.append(f"High Temperature ({sample.temperature:.1f}°C)")
                 flags["temperature"] = "fail"
 
-        # ── 6. Specific Gravity ────────────────────────────────
+        # ── 6. Specific Gravity (CORE) ────────────────────────────────
         if sample.specific_gravity is not None:
             if not (self.t["sg_min"] <= sample.specific_gravity <= self.t["sg_max"]):
-                msg = (
-                    f"Specific Gravity {sample.specific_gravity:.4f} outside range "
-                    f"({self.t['sg_min']}–{self.t['sg_max']}) — "
-                    "Water Mixing / Quality Issue Detected"
-                )
-                minor_warnings.append(msg)
+                critical_failures.append(f"Density Abnormal ({sample.specific_gravity:.4f})")
                 flags["specific_gravity"] = "fail"
             else:
                 flags["specific_gravity"] = "pass"
 
-        # ── 7. COB Test (CRITICAL) ─────────────────────────────
-        cob = str(sample.cob_test).lower().strip()
-        if cob == "positive":
-            critical_failures.append(
-                "COB Test POSITIVE — Carbonate/Soda Adulteration Detected (Immediate Rejection)"
-            )
-            flags["cob_test"] = "critical"
-        else:
-            flags["cob_test"] = "pass"
-
-        # ── 8. Alcohol Test (CRITICAL) ─────────────────────────
-        alc = str(sample.alcohol_test).lower().strip()
-        if alc == "positive":
-            critical_failures.append(
-                "Alcohol Test POSITIVE — Preservative / Alcohol Adulteration (Immediate Rejection)"
-            )
-            flags["alcohol_test"] = "critical"
-        else:
-            flags["alcohol_test"] = "pass"
-
-        # ── 9. Organoleptic (CRITICAL) ─────────────────────────
-        org = str(sample.organoleptic).lower().strip()
-        if org == "abnormal":
-            critical_failures.append(
-                "Organoleptic Test ABNORMAL — Abnormal Smell/Color/Taste Detected (Immediate Rejection)"
-            )
-            flags["organoleptic"] = "critical"
-        else:
-            flags["organoleptic"] = "pass"
-
-        # ── 10. Sediment Test (CRITICAL) ───────────────────────
-        sed = str(sample.sediment_test).lower().strip()
-        if sed == "dirty":
-            critical_failures.append(
-                "Sediment Test DIRTY — Physical Contamination Present (Immediate Rejection)"
-            )
-            flags["sediment_test"] = "critical"
-        else:
-            flags["sediment_test"] = "pass"
-
-        # ── 11. MBRT ───────────────────────────────────────────
+        # ── 7. MBRT (CORE) ───────────────────────────────────────────
         if sample.mbrt is not None:
-            if sample.mbrt < self.t["mbrt_good"]:
-                critical_failures.append(
-                    f"MBRT {sample.mbrt:.1f}h — Below acceptable threshold: Bacterial Load (Immediate Rejection)"
-                )
-                flags["mbrt"] = "critical"
+            if sample.mbrt < self.t["mbrt_check"]:
+                critical_failures.append(f"Poor MBRT ({sample.mbrt:.1f}h)")
+                flags["mbrt"] = "fail"
             else:
                 flags["mbrt"] = "pass"
 
-        # ── 12. Raw Milk Temperature ───────────────────────────
+        # ── 8. COB Test (CORE) ─────────────────────────────
+        if sample.cob_test is not None:
+            cob = str(sample.cob_test).lower().strip()
+            if cob == "positive":
+                critical_failures.append("COB Positive")
+                flags["cob_test"] = "fail"
+            elif cob == "negative":
+                flags["cob_test"] = "pass"
+
+        # ── 9. Alcohol Test (OPTIONAL) ─────────────────────────
+        if sample.alcohol_test is not None:
+            alc = str(sample.alcohol_test).lower().strip()
+            if alc == "positive":
+                minor_warnings.append("Alcohol Test POSITIVE")
+                flags["alcohol_test"] = "warning"
+            elif alc == "negative":
+                flags["alcohol_test"] = "pass"
+
+        # ── 10. Organoleptic (OPTIONAL) ─────────────────────────
+        if sample.organoleptic is not None:
+            org = str(sample.organoleptic).lower().strip()
+            if org == "abnormal":
+                minor_warnings.append("Organoleptic Test ABNORMAL")
+                flags["organoleptic"] = "warning"
+            elif org == "normal":
+                flags["organoleptic"] = "pass"
+
+        # ── 11. Sediment Test (OPTIONAL) ───────────────────────
+        if sample.sediment_test is not None:
+            sed = str(sample.sediment_test).lower().strip()
+            if sed == "dirty":
+                minor_warnings.append("Sediment Test DIRTY")
+                flags["sediment_test"] = "warning"
+            elif sed == "clean":
+                flags["sediment_test"] = "pass"
+
+        # ── 12. Raw Milk Temperature (OPTIONAL) ───────────────────────────
         if sample.raw_milk_temp is not None:
-            if not (
-                self.t["raw_milk_temp_min"]
-                <= sample.raw_milk_temp
-                <= self.t["raw_milk_temp_max"]
-            ):
-                critical_failures.append(
-                    f"Raw Milk Temperature {sample.raw_milk_temp:.1f}°C outside "
-                    f"accepted range ({self.t['raw_milk_temp_min']}–"
-                    f"{self.t['raw_milk_temp_max']}°C) — Quality Compromised"
-                )
-                flags["raw_milk_temp"] = "critical"
+            if not (self.t["raw_milk_temp_min"] <= sample.raw_milk_temp <= self.t["raw_milk_temp_max"]):
+                minor_warnings.append(f"Raw Milk Temp {sample.raw_milk_temp:.1f}°C outside range")
+                flags["raw_milk_temp"] = "warning"
             else:
                 flags["raw_milk_temp"] = "pass"
 
@@ -227,18 +183,14 @@ class DecisionEngine:
         result.parameter_flags = flags
 
         # ── Decision Logic ─────────────────────────────────────
-
-        all_reasons = critical_failures + minor_warnings
-
-        if result.fraud_risk in ("medium", "high"):
-            all_reasons.append(f"Fraud Risk: {result.fraud_risk.upper()} detected. Automatic Rejection.")
-            
-        if all_reasons:
+        if critical_failures:
             result.decision = "reject"
-            result.reasons = all_reasons
+            result.reasons = critical_failures
+            result.warnings = minor_warnings
         else:
             result.decision = "accept"
-            result.reasons = ["All quality parameters within acceptable limits"]
+            result.reasons = ["All core quality parameters within acceptable limits"]
+            result.warnings = minor_warnings
 
         return result
 
@@ -262,7 +214,7 @@ class DecisionEngine:
             risk_score += 2
 
         # COB or Alcohol positive → deliberate adulteration
-        if flags.get("cob_test") == "critical" or flags.get("alcohol_test") == "critical":
+        if flags.get("cob_test") == "fail" or flags.get("alcohol_test") == "warning":
             risk_score += 3
 
         # SG fail with SNF fail

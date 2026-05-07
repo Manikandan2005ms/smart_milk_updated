@@ -32,9 +32,7 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 
 FEATURE_COLS = [
     "fat", "snf", "ph", "acidity", "temperature",
-    "specific_gravity", "mbrt", "raw_milk_temp",
-    "cob_test_num", "alcohol_test_num",
-    "organoleptic_num", "sediment_test_num",
+    "specific_gravity", "mbrt", "cob_test_num",
 ]
 
 rng = np.random.default_rng(42)
@@ -61,19 +59,23 @@ def make_accept_sample():
 
 def make_reject_sample():
     s = make_accept_sample()
-    choice = rng.integers(0, 6)
+    choice = rng.integers(0, 8)
     if choice == 0:
         s["cob_test_num"] = 1
     elif choice == 1:
-        s["alcohol_test_num"] = 1
-    elif choice == 2:
-        s["organoleptic_num"] = 1
-    elif choice == 3:
-        s["sediment_test_num"] = 1
-    elif choice == 4:
         s["mbrt"] = rng.uniform(0.5, 1.9)
+    elif choice == 2:
+        s["fat"] = rng.choice([rng.uniform(1.0, 3.1), rng.uniform(3.6, 6.0)])
+    elif choice == 3:
+        s["snf"] = rng.choice([rng.uniform(5.0, 8.2), rng.uniform(8.6, 10.0)])
+    elif choice == 4:
+        s["ph"] = rng.choice([rng.uniform(5.0, 6.4), rng.uniform(6.9, 8.0)])
+    elif choice == 5:
+        s["temperature"] = rng.uniform(15.1, 30.0)
+    elif choice == 6:
+        s["acidity"] = rng.choice([rng.uniform(0.01, 0.09), rng.uniform(0.16, 0.30)])
     else:
-        s["raw_milk_temp"] = rng.choice([rng.uniform(10, 24), rng.uniform(38, 50)])
+        s["specific_gravity"] = rng.choice([rng.uniform(1.000, 1.027), rng.uniform(1.033, 1.050)])
     return s
 
 

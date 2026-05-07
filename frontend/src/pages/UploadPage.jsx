@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileSpreadsheet, X, CheckCircle, XCircle, AlertTriangle, Loader2, Info, ShieldAlert, FileText } from 'lucide-react'
+import { Upload, FileSpreadsheet, X, CheckCircle, XCircle, AlertTriangle, Loader2, Info, ShieldAlert, FileText, FileText as FileTextIcon, File as FileIcon } from 'lucide-react'
 import api from '../utils/api'
 import toast from 'react-hot-toast'
 
@@ -17,6 +17,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState(null)
+  const [isConfirmed, setIsConfirmed] = useState(false)
   const [sessionName, setSessionName] = useState('')
   const navigate = useNavigate()
 
@@ -24,12 +25,13 @@ export default function UploadPage() {
     const f = files[0]
     if (!f) return
     const ext = f.name.split('.').pop().toLowerCase()
-    if (!['xlsx', 'xls', 'csv'].includes(ext)) {
-      toast.error('Only .xlsx, .xls, .csv files allowed')
+    if (!['xlsx', 'xls', 'csv', 'pdf', 'txt'].includes(ext)) {
+      toast.error('Only .xlsx, .xls, .csv, .pdf, .txt files allowed')
       return
     }
     setFile(f)
     setResult(null)
+    setIsConfirmed(false)
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -37,16 +39,19 @@ export default function UploadPage() {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls'],
       'text/csv': ['.csv'],
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
     }
   })
 
-  const handleUpload = async () => {
+  const handleUpload = async (isPreview = true) => {
     if (!file) return
     setUploading(true)
     setProgress(10)
     const fd = new FormData()
     fd.append('file', file)
     if (sessionName) fd.append('session_name', sessionName)
+    if (isPreview) fd.append('preview', 'true')
     try {
       setProgress(40)
       const r = await api.post('/upload', fd, {
@@ -55,9 +60,18 @@ export default function UploadPage() {
       })
       setProgress(100)
       setResult(r.data)
-      toast.success(`Processed ${r.data.total_rows} rows successfully`)
+      if (!isPreview) {
+        setIsConfirmed(true)
+        toast.success(`Processed & Saved ${r.data.total_rows} rows successfully`)
+      } else {
+        toast.success(`Preview generated successfully`)
+      }
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Upload failed')
+      if (err.response?.data?.details?.length > 0) {
+        toast.error(err.response.data.details[0])
+      } else {
+        toast.error(err.response?.data?.error || 'Upload failed')
+      }
     } finally {
       setUploading(false)
     }
@@ -97,7 +111,7 @@ export default function UploadPage() {
           ) : (
             <div className="max-w-xs">
               <p className="font-bold text-slate-700 dark:text-slate-200">Drag & Drop your file here</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">Excel (.xlsx, .xls) or CSV files are supported. Max size 10MB.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">Excel, CSV, PDF, or TXT files are supported. Max size 10MB.</p>
             </div>
           )}
         </div>
@@ -118,16 +132,16 @@ export default function UploadPage() {
         </div>
       )}
 
-      {file && (
+      {file && !result && (
         <div className="flex flex-col sm:flex-row gap-3">
-          <button onClick={handleUpload} disabled={uploading} className="btn-primary flex items-center justify-center gap-2 px-10 py-3 shadow-lg shadow-milk-600/20">
+          <button onClick={() => handleUpload(true)} disabled={uploading} className="btn-primary flex items-center justify-center gap-2 px-10 py-3 shadow-lg shadow-milk-600/20">
             {uploading
               ? <Loader2 size={18} className="animate-spin"/>
-              : <Upload size={18}/>
+              : <FileTextIcon size={18}/>
             }
-            <span className="font-bold uppercase tracking-wider text-xs">{uploading ? 'Processing…' : 'Start Analysis'}</span>
+            <span className="font-bold uppercase tracking-wider text-xs">{uploading ? 'Generating Preview…' : 'Generate Preview'}</span>
           </button>
-          <button onClick={() => { setFile(null); setResult(null); setProgress(0) }}
+          <button onClick={() => { setFile(null); setResult(null); setProgress(0); setIsConfirmed(false) }}
             className="btn-secondary flex items-center justify-center gap-2 px-6 py-3 border border-slate-200 dark:border-slate-800">
             <X size={18}/> <span className="font-bold uppercase tracking-wider text-xs">Cancel</span>
           </button>
@@ -193,7 +207,7 @@ export default function UploadPage() {
             <div className="card overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Info size={14}/> Preview (Batch: {result.batch_id})
+                  <Info size={14}/> {isConfirmed ? `Processed (Batch: ${result.batch_id})` : 'Preview Mode'}
                 </h3>
               </div>
               <div className="overflow-x-auto scrollbar-thin">
@@ -236,30 +250,57 @@ export default function UploadPage() {
               </div>
             </div>
             
-            <div className="flex justify-end pt-2">
-              <button onClick={() => navigate(`/records?batch_id=${result.batch_id}`)}
-                className="btn-primary flex items-center justify-center gap-2 px-8 py-3">
-                <FileText size={18}/>
-                <span className="font-bold uppercase tracking-wider text-xs">View Full Batch Records</span>
-              </button>
+            <div className="flex justify-end pt-2 gap-3">
+              {!isConfirmed ? (
+                <>
+                  <button onClick={() => { setFile(null); setResult(null); setProgress(0); setIsConfirmed(false) }}
+                    className="btn-secondary flex items-center justify-center gap-2 px-6 py-3 border border-slate-200 dark:border-slate-800">
+                    <X size={18}/> <span className="font-bold uppercase tracking-wider text-xs">Cancel</span>
+                  </button>
+                  <button onClick={() => handleUpload(false)} disabled={uploading}
+                    className="btn-primary flex items-center justify-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-500 border-emerald-600 text-white shadow-emerald-600/20">
+                    {uploading ? <Loader2 size={18} className="animate-spin"/> : <CheckCircle size={18}/>}
+                    <span className="font-bold uppercase tracking-wider text-xs">{uploading ? 'Saving...' : 'Confirm & Save Data'}</span>
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => navigate(`/records?batch_id=${result.batch_id}`)}
+                  className="btn-primary flex items-center justify-center gap-2 px-8 py-3">
+                  <FileText size={18}/>
+                  <span className="font-bold uppercase tracking-wider text-xs">View Full Batch Records</span>
+                </button>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Format guide */}
-      <div className="card p-5 sm:p-6 bg-slate-50/50 dark:bg-slate-900/30 border-slate-200/60 dark:border-slate-800">
-        <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
+      <div className="card p-5 sm:p-6 bg-slate-50/50 dark:bg-slate-900/30 border-slate-200/60 dark:border-slate-800 space-y-5">
+        <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-300 flex items-center gap-2 uppercase tracking-wider">
            <Info size={16} className="text-milk-600 dark:text-milk-400"/> Expected Column Headers
         </h4>
-        <div className="flex flex-wrap gap-2 sm:gap-2.5">
-          {['farmer_name', 'farmer_code', 'date', 'shift', 'fat', 'snf', 'ph', 'acidity',
-            'temperature', 'cob_test', 'alcohol_test', 'mbrt', 'quantity'].map(h => (
-            <span key={h} className="px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-lg text-[10px] font-bold font-mono border border-slate-200 dark:border-slate-800 shadow-sm">{h}</span>
-          ))}
+        
+        <div>
+          <p className="text-[10px] font-black text-red-500 dark:text-red-400 uppercase tracking-widest mb-2">Required Parameters *</p>
+          <div className="flex flex-wrap gap-2 sm:gap-2.5">
+            {['fat', 'snf', 'ph', 'acidity', 'temperature', 'specific_gravity', 'mbrt', 'cob_test'].map(h => (
+              <span key={h} className="px-2.5 py-1.5 bg-red-50 dark:bg-red-900/10 text-red-700 dark:text-red-300 rounded-lg text-[10px] font-bold font-mono border border-red-200 dark:border-red-900/50 shadow-sm">{h}</span>
+            ))}
+          </div>
         </div>
+
+        <div>
+          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Optional Parameters</p>
+          <div className="flex flex-wrap gap-2 sm:gap-2.5">
+            {['alcohol_test', 'organoleptic', 'sediment_test', 'raw_milk_temp', 'quantity', 'farmer_name', 'farmer_code', 'date', 'shift'].map(h => (
+              <span key={h} className="px-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 rounded-lg text-[10px] font-bold font-mono border border-slate-200 dark:border-slate-800 shadow-sm">{h}</span>
+            ))}
+          </div>
+        </div>
+
         <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-500 mt-5 font-medium leading-relaxed">
-          <span className="font-bold text-slate-700 dark:text-slate-300">Note:</span> Column names are flexible. Common aliases like "FAT %", "Sp Gravity", "Temp" are automatically detected.
+          <span className="font-bold text-slate-700 dark:text-slate-300">Note:</span> Missing optional columns are fine. Column names are flexible. Common aliases like "FAT %", "Sp Gravity", "Temp" are automatically detected.
         </p>
       </div>
     </div>

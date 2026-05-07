@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
-import { FlaskConical, CheckCircle, XCircle, AlertTriangle, RotateCcw, Info } from 'lucide-react'
+import { FlaskConical, CheckCircle, XCircle, AlertTriangle, RotateCcw, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../utils/api'
 import toast from 'react-hot-toast'
 
@@ -56,28 +56,29 @@ function evaluateLive(data, sys) {
     else flags.specific_gravity = 'pass'
   }
   
-  if (data.cob_test === 'positive') { flags.cob_test = 'critical'; reasons.push('COB Positive (Reject)') }
+  if (data.cob_test === 'positive') { flags.cob_test = 'fail'; reasons.push('COB Positive (Reject)') }
   else if (data.cob_test) flags.cob_test = 'pass'
   
-  if (data.alcohol_test === 'positive') { flags.alcohol_test = 'critical'; reasons.push('Alcohol Positive (Reject)') }
+  if (data.alcohol_test === 'positive') { flags.alcohol_test = 'warning'; reasons.push('Alcohol Positive (Warning)') }
   else if (data.alcohol_test) flags.alcohol_test = 'pass'
   
-  if (data.organoleptic === 'abnormal') { flags.organoleptic = 'critical'; reasons.push('Organoleptic Abnormal (Reject)') }
+  if (data.organoleptic === 'abnormal') { flags.organoleptic = 'warning'; reasons.push('Organoleptic Abnormal (Warning)') }
   else if (data.organoleptic) flags.organoleptic = 'pass'
   
-  if (data.sediment_test === 'dirty') { flags.sediment_test = 'critical'; reasons.push('Sediment Dirty (Reject)') }
+  if (data.sediment_test === 'dirty') { flags.sediment_test = 'warning'; reasons.push('Sediment Dirty (Warning)') }
   else if (data.sediment_test) flags.sediment_test = 'pass'
 
   if (mbrt !== null) {
-    if (mbrt < s('mbrt_good')) { flags.mbrt = 'critical'; reasons.push(`MBRT ${mbrt}h too low (<${s('mbrt_good')})`) }
+    if (mbrt < s('mbrt_check') || mbrt < 2.0) { flags.mbrt = 'fail'; reasons.push(`MBRT ${mbrt}h too low (<${s('mbrt_check') || 2.0})`) }
     else flags.mbrt = 'pass'
   }
   if (rawTemp !== null) {
-    if (rawTemp < s('raw_milk_temp_min') || rawTemp > s('raw_milk_temp_max')) { flags.raw_milk_temp = 'critical'; reasons.push(`Raw Temp ${rawTemp}°C out of range (${s('raw_milk_temp_min')}-${s('raw_milk_temp_max')})`) }
+    if (rawTemp < s('raw_milk_temp_min') || rawTemp > s('raw_milk_temp_max')) { flags.raw_milk_temp = 'warning'; reasons.push(`Raw Temp ${rawTemp}°C out of range (${s('raw_milk_temp_min')}-${s('raw_milk_temp_max')})`) }
     else flags.raw_milk_temp = 'pass'
   }
 
-  const decision = reasons.length > 0 ? 'reject' : 'accept'
+  const hasFail = Object.values(flags).some(f => f === 'fail' || f === 'critical');
+  const decision = hasFail ? 'reject' : 'accept';
   return { decision, reasons, parameter_flags: flags, isLive: true }
 }
 
@@ -168,6 +169,7 @@ export default function ManualEntryPage() {
   const [loading, setLoading] = useState(false)
   const [livePreview, setLivePreview] = useState(null)
   const [settings, setSettings] = useState(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   
   const formValues = watch()
 
@@ -235,90 +237,107 @@ export default function ManualEntryPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-3 space-y-5">
           <div className="card p-5 sm:p-6 space-y-5">
             <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-              <span className="w-7 h-7 rounded-xl bg-milk-600 text-white text-[10px] flex items-center justify-center font-black shadow-lg shadow-milk-600/20">1</span>
-              Supplier & Collection Info
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Farmer Name</label>
-                <input className={`input py-2.5 text-sm ${getBorderColor('farmer_name')}`} {...register('farmer_name', { required: true })} placeholder="e.g. John Doe"/>
-              </div>
-              <div>
-                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Farmer Code</label>
-                <input className={`input py-2.5 text-sm ${getBorderColor('farmer_code')}`} {...register('farmer_code', { required: true })} placeholder="e.g. MK-001"/>
-              </div>
-              <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Date</label>
-                  <input type="date" className={`input py-2.5 text-sm ${getBorderColor('date')}`} {...register('date', { required: true })} />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Shift</label>
-                  <select className={`select py-2.5 text-sm ${getBorderColor('shift')}`} {...register('shift')}>
-                    <option value="morning">Morning</option>
-                    <option value="evening">Evening</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Qty (L)</label>
-                  <input type="number" step="0.01" className={`input py-2.5 text-sm ${getBorderColor('quantity')}`} {...register('quantity', { required: true })} placeholder="0.0"/>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-5 sm:p-6 space-y-5">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-               <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white text-[10px] flex items-center justify-center font-black shadow-lg shadow-indigo-600/20">2</span>
-              Core Lab Parameters
+               <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white text-[10px] flex items-center justify-center font-black shadow-lg shadow-indigo-600/20">1</span>
+              Core Parameters (Mandatory *)
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {['fat', 'snf', 'ph', 'acidity', 'temperature', 'specific_gravity', 'mbrt', 'raw_milk_temp'].map(field => (
+              {['fat', 'snf', 'ph', 'acidity', 'temperature', 'specific_gravity', 'mbrt'].map(field => (
                 <div key={field}>
                   <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">
-                    {field.replace(/_/g, ' ')}
+                    {field.replace(/_/g, ' ')} *
                   </label>
-                  <input type="number" step="0.001" className={`input py-2.5 text-sm ${getBorderColor(field)}`} {...register(field)} placeholder="0.0"/>
+                  <input type="number" step="0.001" className={`input py-2.5 text-sm ${getBorderColor(field)}`} {...register(field, { required: true })} placeholder="0.0"/>
                 </div>
               ))}
+              <div>
+                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">COB Test *</label>
+                <select className={`select py-2.5 text-sm ${getBorderColor('cob_test')}`} {...register('cob_test', { required: true })}>
+                  <option value="negative">Negative ✓</option>
+                  <option value="positive">Positive ✗</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="card p-5 sm:p-6 space-y-5">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-               <span className="w-7 h-7 rounded-xl bg-emerald-600 text-white text-[10px] flex items-center justify-center font-black shadow-lg shadow-emerald-600/20">3</span>
-              Qualitative Tests
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">COB Test</label>
-                <select className={`select py-2.5 text-sm ${getBorderColor('cob_test')}`} {...register('cob_test')}>
-                  <option value="negative">Negative ✓</option>
-                  <option value="positive">Positive ✗</option>
-                </select>
-              </div>
-              <div>
-                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Alcohol Test</label>
-                <select className={`select py-2.5 text-sm ${getBorderColor('alcohol_test')}`} {...register('alcohol_test')}>
-                  <option value="negative">Negative ✓</option>
-                  <option value="positive">Positive ✗</option>
-                </select>
-              </div>
-              <div>
-                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Organoleptic</label>
-                <select className={`select py-2.5 text-sm ${getBorderColor('organoleptic')}`} {...register('organoleptic')}>
-                  <option value="normal">Normal ✓</option>
-                  <option value="abnormal">Abnormal ✗</option>
-                </select>
-              </div>
-              <div>
-                <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Sediment</label>
-                <select className={`select py-2.5 text-sm ${getBorderColor('sediment_test')}`} {...register('sediment_test')}>
-                  <option value="clean">Clean ✓</option>
-                  <option value="dirty">Dirty ✗</option>
-                </select>
-              </div>
-            </div>
+          <div className="card p-0 overflow-hidden border border-slate-200/60 dark:border-slate-800">
+            <button 
+              type="button" 
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full p-4 sm:p-5 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
+                <span className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] flex items-center justify-center font-black">2</span>
+                Optional Details (Farmer & Advanced Tests)
+              </h3>
+              {showAdvanced ? <ChevronUp size={20} className="text-slate-400"/> : <ChevronDown size={20} className="text-slate-400"/>}
+            </button>
+            
+            <AnimatePresence>
+              {showAdvanced && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }} 
+                  exit={{ height: 0, opacity: 0 }}
+                  className="px-5 pb-5 sm:px-6 sm:pb-6 space-y-5 border-t border-slate-200/60 dark:border-slate-800"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Farmer Name</label>
+                      <input className={`input py-2.5 text-sm ${getBorderColor('farmer_name')}`} {...register('farmer_name')} placeholder="e.g. John Doe"/>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Farmer Code</label>
+                      <input className={`input py-2.5 text-sm ${getBorderColor('farmer_code')}`} {...register('farmer_code')} placeholder="e.g. MK-001"/>
+                    </div>
+                    <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Date</label>
+                        <input type="date" className={`input py-2.5 text-sm ${getBorderColor('date')}`} {...register('date')} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Shift</label>
+                        <select className={`select py-2.5 text-sm ${getBorderColor('shift')}`} {...register('shift')}>
+                          <option value="morning">Morning</option>
+                          <option value="evening">Evening</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Qty (L)</label>
+                        <input type="number" step="0.01" className={`input py-2.5 text-sm ${getBorderColor('quantity')}`} {...register('quantity')} placeholder="0.0"/>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                    <div>
+                      <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Alcohol Test</label>
+                      <select className={`select py-2.5 text-sm ${getBorderColor('alcohol_test')}`} {...register('alcohol_test')}>
+                        <option value="negative">Negative ✓</option>
+                        <option value="positive">Positive ✗</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Organoleptic</label>
+                      <select className={`select py-2.5 text-sm ${getBorderColor('organoleptic')}`} {...register('organoleptic')}>
+                        <option value="normal">Normal ✓</option>
+                        <option value="abnormal">Abnormal ✗</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Sediment</label>
+                      <select className={`select py-2.5 text-sm ${getBorderColor('sediment_test')}`} {...register('sediment_test')}>
+                        <option value="clean">Clean ✓</option>
+                        <option value="dirty">Dirty ✗</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1 block">Raw Milk Temp</label>
+                      <input type="number" step="0.1" className={`input py-2.5 text-sm ${getBorderColor('raw_milk_temp')}`} {...register('raw_milk_temp')} placeholder="0.0"/>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="flex gap-3">

@@ -14,9 +14,7 @@ logger = logging.getLogger(__name__)
 # Feature order must match training
 FEATURE_COLUMNS = [
     "fat", "snf", "ph", "acidity", "temperature",
-    "specific_gravity", "mbrt", "raw_milk_temp",
-    "cob_test_num", "alcohol_test_num",
-    "organoleptic_num", "sediment_test_num",
+    "specific_gravity", "mbrt", "cob_test_num"
 ]
 
 DECISION_LABELS = ["accept", "reject"]
