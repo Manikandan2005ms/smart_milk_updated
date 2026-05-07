@@ -112,8 +112,11 @@
   .dark .badge-manual { @apply bg-amber-900/40 text-amber-400 border-amber-800 shadow-none; }
 
   .badge-high      { @apply inline-flex items-center gap-1 bg-red-600 text-white border border-red-600 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg shadow-red-600/20; }
+  .dark .badge-high { @apply shadow-none; }
   .badge-medium    { @apply inline-flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-sm; }
+  .dark .badge-medium { @apply bg-orange-900/40 text-orange-400 border-orange-800 shadow-none; }
   .badge-low       { @apply inline-flex items-center gap-1 bg-slate-50 text-slate-500 border border-slate-200 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg; }
+  .dark .badge-low { @apply bg-slate-800/50 text-slate-400 border-slate-700; }
 
   .label { @apply block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-widest; }
 

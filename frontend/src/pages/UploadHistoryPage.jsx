@@ -15,6 +15,7 @@ export default function UploadHistoryPage() {
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [shiftFilter, setShiftFilter] = useState('')
+  const [downloadDropdown, setDownloadDropdown] = useState(null)
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -52,6 +53,25 @@ export default function UploadHistoryPage() {
       fetchBatches()
     } catch (err) {
       toast.error('Failed to delete batch')
+    }
+  }
+
+  const handleDownload = async (batchId, format) => {
+    try {
+      toast.loading(`Downloading ${format.toUpperCase()}...`, { id: 'download' })
+      const res = await api.get(`/export/${format}?batch_id=${batchId}`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `batch_${batchId}.${format === 'excel' ? 'xlsx' : format}`)
+      document.body.appendChild(link)
+      link.click()
+      link.parentNode.removeChild(link)
+      toast.success('Download complete', { id: 'download' })
+      setDownloadDropdown(null)
+    } catch (err) {
+      toast.error('Failed to download file', { id: 'download' })
+      setDownloadDropdown(null)
     }
   }
 
@@ -125,7 +145,7 @@ export default function UploadHistoryPage() {
                         className="p-2 rounded-xl text-slate-400 hover:text-milk-600 hover:bg-milk-50 dark:hover:bg-milk-900/30 transition-all">
                         <Eye size={16}/>
                       </button>
-                      <button onClick={() => window.open(`${api.defaults.baseURL.replace('/api', '')}/export/excel?batch_id=${b.batch_id}`, '_blank')} title="Export Batch"
+                      <button onClick={() => setDownloadDropdown(b.batch_id)} title="Export Batch"
                         className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                         <Download size={16}/>
                       </button>
@@ -147,6 +167,31 @@ export default function UploadHistoryPage() {
           </table>
         </div>
       </div>
+
+      {downloadDropdown && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xl max-w-sm w-full border border-slate-200 dark:border-slate-800">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Export Batch {downloadDropdown}</h3>
+            <div className="space-y-3">
+              <button onClick={() => handleDownload(downloadDropdown, 'pdf')} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-milk-50 dark:hover:bg-milk-900/20 text-slate-700 dark:text-slate-300 rounded-xl transition-colors font-medium border border-slate-200 dark:border-slate-700">
+                <span>PDF Document</span>
+                <span className="text-xs text-slate-400 font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-md">.pdf</span>
+              </button>
+              <button onClick={() => handleDownload(downloadDropdown, 'excel')} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-milk-50 dark:hover:bg-milk-900/20 text-slate-700 dark:text-slate-300 rounded-xl transition-colors font-medium border border-slate-200 dark:border-slate-700">
+                <span>Excel Spreadsheet</span>
+                <span className="text-xs text-slate-400 font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-md">.xlsx</span>
+              </button>
+              <button onClick={() => handleDownload(downloadDropdown, 'csv')} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-milk-50 dark:hover:bg-milk-900/20 text-slate-700 dark:text-slate-300 rounded-xl transition-colors font-medium border border-slate-200 dark:border-slate-700">
+                <span>CSV Data</span>
+                <span className="text-xs text-slate-400 font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-md">.csv</span>
+              </button>
+            </div>
+            <div className="mt-6">
+              <button onClick={() => setDownloadDropdown(null)} className="w-full py-2.5 text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Cancel</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

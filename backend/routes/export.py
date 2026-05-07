@@ -224,3 +224,42 @@ def export_pdf():
     fname = f"milk_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name=fname)
+
+@export_bp.get("/csv")
+@jwt_required()
+def export_csv():
+    import csv
+    import io
+    
+    args = dict(request.args)
+    records = _build_query(args).limit(10_000).all()
+    
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    
+    headers = ["ID","Farmer Name","Farmer Code","Date","Shift","FAT %","SNF %","pH","Acidity",
+               "Temp (°C)","Sp. Gravity","COB Test","Alcohol Test","Organoleptic","Sediment",
+               "MBRT (h)","Raw Temp","Qty (L)","Decision","Fraud Risk","Reasons"]
+    writer.writerow(headers)
+    
+    def _f(v, fmt="{:.2f}"):
+        return fmt.format(float(v)) if v is not None else ""
+        
+    for rec in records:
+        writer.writerow([
+            rec.id, rec.farmer_name, rec.farmer_code or "", str(rec.date),
+            (rec.shift or "").capitalize(),
+            _f(rec.fat), _f(rec.snf), _f(rec.ph), _f(rec.acidity, "{:.3f}"),
+            _f(rec.temperature, "{:.1f}"), _f(rec.specific_gravity, "{:.4f}"),
+            rec.cob_test, rec.alcohol_test, rec.organoleptic, rec.sediment_test,
+            _f(rec.mbrt, "{:.1f}"), _f(rec.raw_milk_temp, "{:.1f}"),
+            _f(rec.quantity, "{:.2f}"),
+            (rec.decision or "").upper(),
+            (rec.fraud_risk or "").upper(),
+            "; ".join(rec.reasons or []),
+        ])
+    
+    buf_bytes = io.BytesIO(buf.getvalue().encode('utf-8'))
+    fname = f"milk_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return send_file(buf_bytes, mimetype="text/csv",
+                     as_attachment=True, download_name=fname)

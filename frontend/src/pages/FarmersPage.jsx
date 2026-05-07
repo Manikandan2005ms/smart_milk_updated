@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, ShieldAlert, ChevronRight, UserCircle } from 'lucide-react'
+import { Search, ShieldAlert, ChevronRight, UserCircle, ShieldCheck, Trash2 } from 'lucide-react'
 import api from '../utils/api'
+import toast from 'react-hot-toast'
 
 export default function FarmersPage() {
   const [farmers, setFarmers] = useState([])
@@ -24,6 +25,18 @@ export default function FarmersPage() {
       setPages(r.data.pages)
     } catch(e) { console.error(e) }
     finally { setLoading(false) }
+  }
+
+  const handleDelete = async (e, id, name) => {
+    e.stopPropagation()
+    if (!window.confirm(`Are you sure you want to delete ${name}?`)) return
+    try {
+      await api.delete(`/farmers/${id}`)
+      toast.success('Farmer deleted successfully')
+      fetch()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete farmer')
+    }
   }
 
   useEffect(() => { fetch() }, [page, search, fraudOnly])
@@ -91,10 +104,21 @@ export default function FarmersPage() {
                 <td className="px-4 py-3">
                   {f.fraud_flag
                     ? <span className="badge-high flex items-center gap-1"><ShieldAlert size={11}/> FLAGGED</span>
-                    : <span className="badge-low">Clear</span>
+                    : <span className="badge-low flex items-center gap-1"><ShieldCheck size={11}/> SAFE</span>
                   }
                 </td>
-                <td className="px-4 py-3"><ChevronRight size={16} className="text-slate-600"/></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <button 
+                      onClick={(e) => handleDelete(e, f.id, f.full_name)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      title="Delete Farmer"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                    <ChevronRight size={16} className="text-slate-600"/>
+                  </div>
+                </td>
               </motion.tr>
             ))}
           </tbody>

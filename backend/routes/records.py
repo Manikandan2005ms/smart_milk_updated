@@ -255,3 +255,13 @@ def get_farmer(farmer_id):
         "farmer": farmer.to_dict(),
         "records": [r.to_dict() for r in records],
     }), 200
+
+@farmers_bp.delete("/<int:farmer_id>")
+@jwt_required()
+def delete_farmer(farmer_id):
+    farmer = Farmer.query.get_or_404(farmer_id)
+    # Set farmer_id to null for historical records to keep analytics intact
+    MilkRecord.query.filter_by(farmer_id=farmer_id).update({"farmer_id": None})
+    db.session.delete(farmer)
+    db.session.commit()
+    return jsonify({"message": "Farmer deleted successfully"}), 200

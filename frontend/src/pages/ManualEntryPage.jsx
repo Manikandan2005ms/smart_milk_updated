@@ -14,11 +14,14 @@ const EMPTY = {
   organoleptic: 'normal', sediment_test: 'clean',
 }
 
-function evaluateLive(data) {
+function evaluateLive(data, sys) {
+  if (!sys) return null;
   const flags = {}
   const reasons = []
   
   const f = v => (v === '' || isNaN(v) ? null : parseFloat(v))
+  const s = k => parseFloat(sys[k] || 0)
+  
   const fat = f(data.fat)
   const snf = f(data.snf)
   const ph = f(data.ph)
@@ -29,27 +32,27 @@ function evaluateLive(data) {
   const rawTemp = f(data.raw_milk_temp)
 
   if (fat !== null) {
-    if (fat < 3.2 || fat > 3.5) { flags.fat = 'fail'; reasons.push(`FAT ${fat}% out of range (3.2-3.5)`) }
+    if (fat < s('fat_min') || fat > s('fat_max')) { flags.fat = 'fail'; reasons.push(`FAT ${fat}% out of range (${s('fat_min')}-${s('fat_max')})`) }
     else flags.fat = 'pass'
   }
   if (snf !== null) {
-    if (snf < 8.3 || snf > 8.5) { flags.snf = 'fail'; reasons.push(`SNF ${snf}% out of range (8.3-8.5)`) }
+    if (snf < s('snf_min') || snf > s('snf_max')) { flags.snf = 'fail'; reasons.push(`SNF ${snf}% out of range (${s('snf_min')}-${s('snf_max')})`) }
     else flags.snf = 'pass'
   }
   if (ph !== null) {
-    if (ph < 6.5 || ph > 6.8) { flags.ph = 'fail'; reasons.push(`pH ${ph} out of range (6.5-6.8)`) }
+    if (ph < s('ph_min') || ph > s('ph_max')) { flags.ph = 'fail'; reasons.push(`pH ${ph} out of range (${s('ph_min')}-${s('ph_max')})`) }
     else flags.ph = 'pass'
   }
   if (acidity !== null) {
-    if (acidity < 0.10 || acidity > 0.15) { flags.acidity = 'fail'; reasons.push(`Acidity ${acidity}% out of range (0.10-0.15)`) }
+    if (acidity < s('acidity_min') || acidity > s('acidity_max')) { flags.acidity = 'fail'; reasons.push(`Acidity ${acidity}% out of range (${s('acidity_min')}-${s('acidity_max')})`) }
     else flags.acidity = 'pass'
   }
   if (temp !== null) {
-    if (temp > 15.0) { flags.temperature = 'fail'; reasons.push(`Temp ${temp}°C too high (>15.0)`) }
+    if (temp > s('temp_acceptable')) { flags.temperature = 'fail'; reasons.push(`Temp ${temp}°C too high (>${s('temp_acceptable')})`) }
     else flags.temperature = 'pass'
   }
   if (sg !== null) {
-    if (sg < 1.028 || sg > 1.032) { flags.specific_gravity = 'fail'; reasons.push(`Sp. Gravity ${sg} out of range (1.028-1.032)`) }
+    if (sg < s('sg_min') || sg > s('sg_max')) { flags.specific_gravity = 'fail'; reasons.push(`Sp. Gravity ${sg} out of range (${s('sg_min')}-${s('sg_max')})`) }
     else flags.specific_gravity = 'pass'
   }
   
@@ -66,11 +69,11 @@ function evaluateLive(data) {
   else if (data.sediment_test) flags.sediment_test = 'pass'
 
   if (mbrt !== null) {
-    if (mbrt < 3.0) { flags.mbrt = 'critical'; reasons.push(`MBRT ${mbrt}h too low (<3.0)`) }
+    if (mbrt < s('mbrt_good')) { flags.mbrt = 'critical'; reasons.push(`MBRT ${mbrt}h too low (<${s('mbrt_good')})`) }
     else flags.mbrt = 'pass'
   }
   if (rawTemp !== null) {
-    if (rawTemp < 25.0 || rawTemp > 37.0) { flags.raw_milk_temp = 'critical'; reasons.push(`Raw Temp ${rawTemp}°C out of range (25-37)`) }
+    if (rawTemp < s('raw_milk_temp_min') || rawTemp > s('raw_milk_temp_max')) { flags.raw_milk_temp = 'critical'; reasons.push(`Raw Temp ${rawTemp}°C out of range (${s('raw_milk_temp_min')}-${s('raw_milk_temp_max')})`) }
     else flags.raw_milk_temp = 'pass'
   }
 
@@ -164,21 +167,26 @@ export default function ManualEntryPage() {
   const [serverResult, setServerResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [livePreview, setLivePreview] = useState(null)
+  const [settings, setSettings] = useState(null)
   
   const formValues = watch()
 
   useEffect(() => {
+    api.get('/settings').then(r => setSettings(r.data)).catch(console.error)
+  }, [])
+
+  useEffect(() => {
     // Only show live preview if there's no server result yet
-    if (!serverResult) {
+    if (!serverResult && settings) {
       // Don't show preview if form is completely empty
       const hasValues = Object.values(formValues).some(v => v !== '' && v !== 'negative' && v !== 'normal' && v !== 'clean' && v !== 'morning' && !v.includes('T'))
       if (hasValues) {
-        setLivePreview(evaluateLive(formValues))
+        setLivePreview(evaluateLive(formValues, settings))
       } else {
         setLivePreview(null)
       }
     }
-  }, [formValues, serverResult])
+  }, [formValues, serverResult, settings])
 
   const onSubmit = async (data) => {
     setLoading(true)
@@ -365,17 +373,23 @@ export default function ManualEntryPage() {
               <Info size={14}/> Quality Standard Reference
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-x-6 gap-y-3">
-              {[
-                ['FAT %', '3.2 – 3.5%'], ['SNF %', '8.3 – 8.5%'],
-                ['pH Value', '6.5 – 6.8'], ['Acidity', '0.10 – 0.15%'],
-                ['Temperature', '≤ 15°C'], ['Sp. Gravity', '1.028 – 1.032'],
-                ['MBRT', '> 3h'], ['Raw Temp', '25 – 37°C'],
+              {settings ? [
+                ['FAT %', `${settings.fat_min} – ${settings.fat_max}%`],
+                ['SNF %', `${settings.snf_min} – ${settings.snf_max}%`],
+                ['pH Value', `${settings.ph_min} – ${settings.ph_max}`],
+                ['Acidity', `${settings.acidity_min} – ${settings.acidity_max}%`],
+                ['Temperature', `≤ ${settings.temp_acceptable}°C`],
+                ['Sp. Gravity', `${settings.sg_min} – ${settings.sg_max}`],
+                ['MBRT', `> ${settings.mbrt_good}h`],
+                ['Raw Temp', `${settings.raw_milk_temp_min} – ${settings.raw_milk_temp_max}°C`],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/50 pb-1.5">
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{k}</span>
                   <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-100 dark:border-slate-800">{v}</span>
                 </div>
-              ))}
+              )) : (
+                <div className="py-4 flex justify-center"><div className="w-5 h-5 border-2 border-milk-500 border-t-transparent rounded-full animate-spin"></div></div>
+              )}
             </div>
           </div>
         </div>
