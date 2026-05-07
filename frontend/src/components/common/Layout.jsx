@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Upload, ClipboardEdit, FileText,
   Users, BarChart3, Settings, LogOut, Menu, X,
-  Droplets, ChevronRight, Bell, Sun, Moon
+  Droplets, ChevronRight, Bell, Sun, Moon, History
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -13,6 +13,7 @@ import toast from 'react-hot-toast'
 const NAV = [
   { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'     },
   { to: '/upload',       icon: Upload,          label: 'Upload Data'   },
+  { to: '/upload-history',icon: History,        label: 'Upload History'},
   { to: '/manual-entry', icon: ClipboardEdit,   label: 'Manual Entry'  },
   { to: '/records',      icon: FileText,        label: 'Records'       },
   { to: '/farmers',      icon: Users,           label: 'Farmers'       },

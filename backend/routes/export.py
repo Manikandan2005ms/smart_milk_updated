@@ -74,7 +74,6 @@ def export_excel():
     dec_fills = {
         "accept":       PatternFill("solid", fgColor="C8E6C9"),
         "reject":       PatternFill("solid", fgColor="FFCDD2"),
-        "manual_check": PatternFill("solid", fgColor="FFF9C4"),
     }
 
     def _f(v, fmt="{:.2f}"):
@@ -112,7 +111,6 @@ def export_excel():
     ws2.append(["Total Records", len(records)])
     ws2.append(["Accepted",  sum(1 for r in records if r.decision == "accept")])
     ws2.append(["Rejected",  sum(1 for r in records if r.decision == "reject")])
-    ws2.append(["Manual Check", sum(1 for r in records if r.decision == "manual_check")])
     ws2.append(["Fraud High", sum(1 for r in records if r.fraud_risk == "high")])
     ws2.append(["Fraud Medium", sum(1 for r in records if r.fraud_risk == "medium")])
     ws2.append(["Generated", datetime.now().strftime("%d %b %Y %H:%M")])
@@ -154,10 +152,9 @@ def export_pdf():
     elements.append(Paragraph("Smart Milk Decision Tool System — Quality Report", title_s))
     acc = sum(1 for r in records if r.decision=="accept")
     rej = sum(1 for r in records if r.decision=="reject")
-    man = sum(1 for r in records if r.decision=="manual_check")
     elements.append(Paragraph(
         f"Generated: {datetime.now().strftime('%d %b %Y %H:%M')}  |  "
-        f"Total: {len(records)}  |  Accepted: {acc}  |  Rejected: {rej}  |  Manual: {man}",
+        f"Total: {len(records)}  |  Accepted: {acc}  |  Rejected: {rej}",
         sub_s))
     elements.append(Spacer(1, 4*mm))
     elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1")))
@@ -210,9 +207,6 @@ def export_pdf():
             ts += [("BACKGROUND",(dc,i),(dc,i),colors.HexColor("#FEE2E2")),
                    ("TEXTCOLOR",(dc,i),(dc,i),colors.HexColor("#991B1B")),
                    ("FONTNAME",(dc,i),(dc,i),"Helvetica-Bold")]
-        elif rec.decision == "manual_check":
-            ts += [("BACKGROUND",(dc,i),(dc,i),colors.HexColor("#FEF3C7")),
-                   ("TEXTCOLOR",(dc,i),(dc,i),colors.HexColor("#92400E"))]
         if rec.fraud_risk == "high":
             ts += [("BACKGROUND",(17,i),(17,i),colors.HexColor("#FEE2E2")),
                    ("TEXTCOLOR",(17,i),(17,i),colors.HexColor("#991B1B")),

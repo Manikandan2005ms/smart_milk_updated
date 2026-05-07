@@ -197,3 +197,5 @@ Frontend runs at: **http://localhost:5173**
 
 ## 🤝 Support
 Built for professional dairy quality management.
+
+# SMART_MILK_SYSTEM-UPDATE-ML

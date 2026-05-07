@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, Calendar, Clock } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../utils/api'
 
 function DecisionBadge({ d }) {
-  const c = { accept: 'badge-accept', reject: 'badge-reject', manual_check: 'badge-manual' }[d] || 'badge-low'
-  const l = { accept: 'Accept', reject: 'Reject', manual_check: 'Manual Check' }[d] || d
+  const c = { accept: 'badge-accept', reject: 'badge-reject' }[d] || 'badge-low'
+  const l = { accept: 'Accept', reject: 'Reject' }[d] || d
   return <span className={`${c} whitespace-nowrap`}>{l}</span>
 }
 function FraudBadge({ r }) {
@@ -20,8 +20,19 @@ export default function RecordsPage() {
   const [pages, setPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState({ decision: '', shift: '', date_from: '', date_to: '', search: '' })
+  const [searchParams] = useSearchParams()
+  const initialBatchId = searchParams.get('batch_id') || ''
+  
+  const [filters, setFilters] = useState({ 
+    decision: '', fraud_risk: '', shift: '', date_from: '', date_to: '', search: '', batch_id: initialBatchId 
+  })
+  const [batchesList, setBatchesList] = useState([])
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Fetch recent batches for the dropdown
+    api.get('/batches?per_page=50').then(r => setBatchesList(r.data.batches)).catch(e => console.error(e))
+  }, [])
 
   const fetchRecords = async (pg = page) => {
     setLoading(true)
@@ -48,7 +59,10 @@ export default function RecordsPage() {
           <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">{total.toLocaleString()} total entries found</p>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={() => setFilters({ decision:'', shift:'', date_from:'', date_to:'', search:'' })}
+           {filters.batch_id && (
+             <span className="badge-high">Batch: {filters.batch_id}</span>
+           )}
+           <button onClick={() => setFilters({ decision:'', fraud_risk:'', shift:'', date_from:'', date_to:'', search:'', batch_id:'' })}
              className="btn-secondary text-xs py-2 px-4 w-full sm:w-auto">Reset Filters</button>
         </div>
       </div>
@@ -61,12 +75,25 @@ export default function RecordsPage() {
             value={filters.search} onChange={e => setFilter('search', e.target.value)}/>
         </div>
         <div className="grid grid-cols-2 sm:flex gap-2">
+          <select className="select flex-1 sm:w-40 text-sm py-2.5" value={filters.batch_id}
+            onChange={e => setFilter('batch_id', e.target.value)}>
+            <option value="">All Batches</option>
+            {batchesList.map(b => (
+              <option key={b.batch_id} value={b.batch_id}>{b.session_name || b.batch_id.split('_').slice(1).join('_')} ({b.total_records})</option>
+            ))}
+          </select>
           <select className="select flex-1 sm:w-40 text-sm py-2.5" value={filters.decision}
             onChange={e => setFilter('decision', e.target.value)}>
             <option value="">Decisions</option>
             <option value="accept">Accept</option>
             <option value="reject">Reject</option>
-            <option value="manual_check">Manual</option>
+          </select>
+          <select className="select flex-1 sm:w-36 text-sm py-2.5" value={filters.fraud_risk}
+            onChange={e => setFilter('fraud_risk', e.target.value)}>
+            <option value="">All Risks</option>
+            <option value="low">Low Risk</option>
+            <option value="medium">Medium Risk</option>
+            <option value="high">High Risk</option>
           </select>
           <select className="select flex-1 sm:w-36 text-sm py-2.5" value={filters.shift}
             onChange={e => setFilter('shift', e.target.value)}>

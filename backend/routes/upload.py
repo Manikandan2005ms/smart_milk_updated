@@ -10,7 +10,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 
-from models.database import db, MilkRecord, Setting
+from models.database import db, MilkRecord, Setting, UploadBatch
 from services.decision_engine import MilkSample, get_engine_with_db_settings
 from services.file_processor import parse_file
 from services.ml_service import MLService
@@ -52,12 +52,30 @@ def upload():
     engine = get_engine_with_db_settings(settings)
 
     ml_svc: MLService = current_app.config.get("ML_SERVICE")
-    batch_id = str(uuid.uuid4())[:12]
+    
+    # Generate unique batch ID
+    today_str = dt_date.today().strftime("%Y%m%d")
+    shift_guess = rows[0].get("shift", "morning").upper() if rows else "MORNING"
+    random_part = str(uuid.uuid4())[:6].upper()
+    batch_id = f"BATCH_{today_str}_{shift_guess}_{random_part}"
 
-    accepted = rejected = manual_check = 0
+    session_name = request.form.get("session_name", f"Upload Session {dt_date.today().isoformat()}")
+    upload_type = request.form.get("upload_type", "bulk")
+
+    accepted = rejected = 0
     fraud_alerts = 0
     saved_records = []
     row_results = []
+    
+    upload_batch = UploadBatch(
+        batch_id=batch_id,
+        file_name=secure_filename(file.filename),
+        session_name=session_name,
+        upload_date=dt_date.today(),
+        shift=shift_guess.lower(),
+        uploaded_by=uid
+    )
+    db.session.add(upload_batch)
 
     for row in rows:
         sample = MilkSample(
@@ -108,6 +126,8 @@ def upload():
             ml_prediction=ml_pred,
             ml_confidence=ml_conf,
             entry_type="upload",
+            upload_type=upload_type,
+            session_name=session_name,
             entered_by=uid,
         )
         db.session.add(rec)
@@ -117,8 +137,6 @@ def upload():
             accepted += 1
         elif result.decision == "reject":
             rejected += 1
-        else:
-            manual_check += 1
         if result.fraud_risk in ("medium", "high"):
             fraud_alerts += 1
 
@@ -132,6 +150,11 @@ def upload():
             "reasons": result.reasons[:2],  # trim for response
         })
 
+    upload_batch.total_records = len(rows)
+    upload_batch.accepted = accepted
+    upload_batch.rejected = rejected
+    upload_batch.fraud_alerts = fraud_alerts
+
     db.session.commit()
 
     return jsonify({
@@ -139,7 +162,6 @@ def upload():
         "total_rows": len(rows),
         "accepted": accepted,
         "rejected": rejected,
-        "manual_check": manual_check,
         "fraud_alerts": fraud_alerts,
         "parse_errors": parse_errors,
         "rows": row_results,

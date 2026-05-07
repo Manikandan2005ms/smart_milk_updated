@@ -6,8 +6,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import api from '../utils/api'
 
 function DecisionBadge({ d }) {
-  const c = { accept: 'badge-accept', reject: 'badge-reject', manual_check: 'badge-manual' }[d] || ''
-  const l = { accept: 'Accept', reject: 'Reject', manual_check: 'Manual' }[d] || d
+  const c = { accept: 'badge-accept', reject: 'badge-reject' }[d] || ''
+  const l = { accept: 'Accept', reject: 'Reject' }[d] || d
   return <span className={c}>{l}</span>
 }
 

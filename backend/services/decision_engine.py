@@ -30,7 +30,7 @@ class MilkSample:
 
 @dataclass
 class DecisionResult:
-    decision: str = "accept"            # "accept" | "reject" | "manual_check"
+    decision: str = "accept"            # "accept" | "reject"
     reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     fraud_risk: str = "low"             # "low" | "medium" | "high"
@@ -132,15 +132,8 @@ class DecisionEngine:
 
         # ── 5. Temperature ─────────────────────────────────────
         if sample.temperature is not None:
-            if sample.temperature <= self.t["temp_ideal"]:
+            if sample.temperature <= self.t["temp_acceptable"]:
                 flags["temperature"] = "pass"
-            elif sample.temperature <= self.t["temp_acceptable"]:
-                msg = (
-                    f"Temperature {sample.temperature:.1f}°C — "
-                    f"Above ideal (>{self.t['temp_ideal']}°C), Manual Verification Advised"
-                )
-                minor_warnings.append(msg)
-                flags["temperature"] = "warning"
             else:
                 msg = (
                     f"Temperature {sample.temperature:.1f}°C — "
@@ -205,18 +198,11 @@ class DecisionEngine:
 
         # ── 11. MBRT ───────────────────────────────────────────
         if sample.mbrt is not None:
-            if sample.mbrt < self.t["mbrt_check"]:
+            if sample.mbrt < self.t["mbrt_good"]:
                 critical_failures.append(
-                    f"MBRT {sample.mbrt:.1f}h — Below 2h: Very High Bacterial Load (Immediate Rejection)"
+                    f"MBRT {sample.mbrt:.1f}h — Below acceptable threshold: Bacterial Load (Immediate Rejection)"
                 )
                 flags["mbrt"] = "critical"
-            elif sample.mbrt < self.t["mbrt_good"]:
-                msg = (
-                    f"MBRT {sample.mbrt:.1f}h — 2–3h Range: Elevated Bacterial Load, "
-                    "Manual Verification Required"
-                )
-                minor_warnings.append(msg)
-                flags["mbrt"] = "warning"
             else:
                 flags["mbrt"] = "pass"
 
@@ -236,36 +222,23 @@ class DecisionEngine:
             else:
                 flags["raw_milk_temp"] = "pass"
 
+        # ── Fraud Risk Assessment ──────────────────────────────
+        result.fraud_risk = self._assess_fraud_risk(sample, flags, len(critical_failures))
+        result.parameter_flags = flags
+
         # ── Decision Logic ─────────────────────────────────────
 
         all_reasons = critical_failures + minor_warnings
 
-        if critical_failures:
-            # Any critical failure → REJECT
+        if result.fraud_risk in ("medium", "high"):
+            all_reasons.append(f"Fraud Risk: {result.fraud_risk.upper()} detected. Automatic Rejection.")
+            
+        if all_reasons:
             result.decision = "reject"
             result.reasons = all_reasons
-        elif len(minor_warnings) >= 3:
-            # Multiple minor issues combined → REJECT
-            result.decision = "reject"
-            all_reasons.append(
-                "Multiple minor quality issues combined — Automatic Rejection"
-            )
-            result.reasons = all_reasons
-        elif any(
-            flags.get(k) == "warning"
-            for k in ("temperature", "mbrt")
-        ) or minor_warnings:
-            # Single or double warnings → MANUAL CHECK
-            result.decision = "manual_check"
-            result.reasons = all_reasons
-            result.warnings = minor_warnings
         else:
             result.decision = "accept"
             result.reasons = ["All quality parameters within acceptable limits"]
-
-        # ── Fraud Risk Assessment ──────────────────────────────
-        result.fraud_risk = self._assess_fraud_risk(sample, flags, len(critical_failures))
-        result.parameter_flags = flags
 
         return result
 

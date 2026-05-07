@@ -46,6 +46,28 @@ CREATE TABLE IF NOT EXISTS farmers (
 );
 
 -- ============================================================
+-- UPLOAD BATCHES TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS upload_batches (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    batch_id VARCHAR(100) UNIQUE NOT NULL,
+    file_name VARCHAR(255),
+    session_name VARCHAR(255),
+    upload_date DATE,
+    shift ENUM('morning', 'evening'),
+    total_records INT DEFAULT 0,
+    accepted INT DEFAULT 0,
+    rejected INT DEFAULT 0,
+    manual_check INT DEFAULT 0,
+    fraud_alerts INT DEFAULT 0,
+    uploaded_by INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_batch_id (batch_id),
+    INDEX idx_upload_date (upload_date)
+);
+
+-- ============================================================
 -- MILK RECORDS TABLE
 -- ============================================================
 CREATE TABLE IF NOT EXISTS milk_records (
@@ -71,13 +93,16 @@ CREATE TABLE IF NOT EXISTS milk_records (
     raw_milk_temp DECIMAL(5,2),
     quantity DECIMAL(10,2),
     -- Decision Output
-    decision ENUM('accept', 'reject', 'manual_check') NOT NULL,
+    decision ENUM('accept', 'reject') DEFAULT 'accept',
     reasons JSON,                               -- array of reason strings
     fraud_risk ENUM('low', 'medium', 'high') DEFAULT 'low',
     ml_prediction VARCHAR(20),
     ml_confidence DECIMAL(5,4),
     -- Meta
     entry_type ENUM('upload', 'manual') DEFAULT 'manual',
+    upload_type VARCHAR(50) DEFAULT 'bulk',
+    session_name VARCHAR(255),
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     entered_by INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

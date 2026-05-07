@@ -19,7 +19,7 @@ FEATURE_COLUMNS = [
     "organoleptic_num", "sediment_test_num",
 ]
 
-DECISION_LABELS = ["accept", "manual_check", "reject"]
+DECISION_LABELS = ["accept", "reject"]
 
 
 class MLService:

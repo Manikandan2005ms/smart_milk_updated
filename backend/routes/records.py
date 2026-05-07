@@ -31,6 +31,7 @@ def get_records():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
     shift = request.args.get("shift")
+    batch_id = request.args.get("batch_id")
     search = request.args.get("search", "").strip()
 
     q = MilkRecord.query
@@ -41,6 +42,8 @@ def get_records():
         q = q.filter(MilkRecord.fraud_risk == fraud_risk)
     if shift:
         q = q.filter(MilkRecord.shift == shift)
+    if batch_id:
+        q = q.filter(MilkRecord.batch_id == batch_id)
     if date_from:
         try:
             q = q.filter(MilkRecord.date >= datetime.strptime(date_from, "%Y-%m-%d").date())
@@ -81,46 +84,75 @@ def get_record(record_id):
 @dashboard_bp.get("")
 @jwt_required()
 def get_dashboard():
-    today = date.today()
-    thirty_ago = today - timedelta(days=30)
+    req_date = request.args.get("date")
+    shift = request.args.get("shift", "").lower()
+    batch_id = request.args.get("batch_id")
+
+    if req_date:
+        try:
+            target_date = datetime.strptime(req_date, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    thirty_ago = target_date - timedelta(days=30)
+
+    # Base Query for Dashboard Data
+    base_q = MilkRecord.query
+
+    if batch_id:
+        base_q = base_q.filter(MilkRecord.batch_id == batch_id)
+    else:
+        base_q = base_q.filter(MilkRecord.date == target_date)
+        if shift and shift != "fullday" and shift != "full day" and shift != "all":
+            base_q = base_q.filter(MilkRecord.shift == shift)
 
     # Totals
-    total = MilkRecord.query.count()
-    accepted = MilkRecord.query.filter_by(decision="accept").count()
-    rejected = MilkRecord.query.filter_by(decision="reject").count()
-    manual_check = MilkRecord.query.filter_by(decision="manual_check").count()
-    fraud_high = MilkRecord.query.filter_by(fraud_risk="high").count()
-    fraud_medium = MilkRecord.query.filter_by(fraud_risk="medium").count()
+    total = base_q.count()
+    accepted = base_q.filter(MilkRecord.decision == "accept").count()
+    rejected = base_q.filter(MilkRecord.decision == "reject").count()
+    fraud_high = base_q.filter(MilkRecord.fraud_risk == "high").count()
+    fraud_medium = base_q.filter(MilkRecord.fraud_risk == "medium").count()
 
-    # Quantities
+    # Quantities (Still helpful to separate morning/evening if fullday is selected)
+    # If shift is filtered to morning, evening_qty will naturally be 0 if we reuse base_q,
+    # so we'll query from base_q for both, which is correct.
     morning_qty = db.session.query(func.sum(MilkRecord.quantity)).filter(
-        MilkRecord.shift == "morning",
-        MilkRecord.date == today,
+        MilkRecord.id.in_(base_q.with_entities(MilkRecord.id)),
+        MilkRecord.shift == "morning"
     ).scalar() or 0
 
     evening_qty = db.session.query(func.sum(MilkRecord.quantity)).filter(
-        MilkRecord.shift == "evening",
-        MilkRecord.date == today,
+        MilkRecord.id.in_(base_q.with_entities(MilkRecord.id)),
+        MilkRecord.shift == "evening"
     ).scalar() or 0
 
-    # Daily trend (last 30 days)
-    daily_rows = db.session.query(
+    # Daily trend (last 30 days) - this should probably NOT be filtered by current date/batch
+    # otherwise it will only show 1 day.
+    # The trend should show the last 30 days up to the target_date
+    trend_q = db.session.query(
         MilkRecord.date,
         MilkRecord.decision,
         func.count(MilkRecord.id).label("cnt"),
     ).filter(
-        MilkRecord.date >= thirty_ago
-    ).group_by(MilkRecord.date, MilkRecord.decision).all()
+        MilkRecord.date >= thirty_ago,
+        MilkRecord.date <= target_date
+    )
+    if shift and shift != "fullday" and shift != "full day" and shift != "all" and not batch_id:
+        trend_q = trend_q.filter(MilkRecord.shift == shift)
+        
+    daily_rows = trend_q.group_by(MilkRecord.date, MilkRecord.decision).all()
 
     daily_map: dict = {}
     for row in daily_rows:
         key = str(row.date)
         if key not in daily_map:
-            daily_map[key] = {"date": key, "accept": 0, "reject": 0, "manual_check": 0}
+            daily_map[key] = {"date": key, "accept": 0, "reject": 0}
         daily_map[key][row.decision] = row.cnt
     daily_trend = sorted(daily_map.values(), key=lambda x: x["date"])
 
-    # Top farmers (by accepted count)
+    # Top farmers (by accepted count) for the selected session/date
     top_farmers = db.session.query(
         MilkRecord.farmer_name,
         MilkRecord.farmer_code,
@@ -129,6 +161,8 @@ def get_dashboard():
             db.case((MilkRecord.decision == "accept", 1), else_=0)
         ).label("accepted"),
         func.sum(MilkRecord.quantity).label("total_qty"),
+    ).filter(
+        MilkRecord.id.in_(base_q.with_entities(MilkRecord.id))
     ).group_by(
         MilkRecord.farmer_name, MilkRecord.farmer_code
     ).order_by(
@@ -151,16 +185,22 @@ def get_dashboard():
         MilkRecord.shift,
         func.count(MilkRecord.id).label("cnt"),
         func.sum(MilkRecord.quantity).label("qty"),
+    ).filter(
+        MilkRecord.id.in_(base_q.with_entities(MilkRecord.id))
     ).group_by(MilkRecord.shift).all()
 
     shift_map = {r.shift: {"count": r.cnt, "quantity": float(r.qty or 0)} for r in shift_data}
 
     return jsonify({
+        "session_info": {
+            "date": str(target_date),
+            "shift": shift if shift else "Full Day",
+            "batch_id": batch_id
+        },
         "kpis": {
             "total": total,
             "accepted": accepted,
             "rejected": rejected,
-            "manual_check": manual_check,
             "fraud_high": fraud_high,
             "fraud_medium": fraud_medium,
             "morning_qty": float(morning_qty),

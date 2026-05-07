@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import date as dt_date
 
-from models.database import db, MilkRecord, Farmer, Setting, Log
+from models.database import db, MilkRecord, Farmer, Setting, UploadBatch
 from services.decision_engine import DecisionEngine, MilkSample, get_engine_with_db_settings
 from services.ml_service import MLService
 
@@ -56,17 +56,49 @@ def predict():
 
     # Persist record
     record_date = _parse_date(data.get("date")) or dt_date.today()
+    shift = data.get("shift", "morning").lower()
+    
     farmer_id = _get_or_create_farmer(
         data.get("farmer_code", ""),
         data.get("farmer_name", "Unknown"),
     )
 
+    # Manual entry session tracking
+    today_str = dt_date.today().strftime("%Y%m%d")
+    batch_id = f"MANUAL_{today_str}_{shift.upper()}"
+    
+    upload_batch = UploadBatch.query.filter_by(batch_id=batch_id).first()
+    if not upload_batch:
+        upload_batch = UploadBatch(
+            batch_id=batch_id,
+            file_name=None,
+            session_name=f"Manual Entry ({shift.capitalize()})",
+            upload_date=dt_date.today(),
+            shift=shift,
+            uploaded_by=uid,
+            total_records=0,
+            accepted=0,
+            rejected=0,
+            fraud_alerts=0
+        )
+        db.session.add(upload_batch)
+    
+    upload_batch.total_records += 1
+    if result.decision == "accept":
+        upload_batch.accepted += 1
+    else:
+        upload_batch.rejected += 1
+        
+    if result.fraud_risk in ("medium", "high"):
+        upload_batch.fraud_alerts += 1
+
     rec = MilkRecord(
+        batch_id=batch_id,
         farmer_id=farmer_id,
         farmer_name=data.get("farmer_name", "Unknown"),
         farmer_code=data.get("farmer_code", ""),
         date=record_date,
-        shift=data.get("shift", "morning"),
+        shift=shift,
         fat=sample.fat, snf=sample.snf, ph=sample.ph,
         acidity=sample.acidity, temperature=sample.temperature,
         specific_gravity=sample.specific_gravity,

@@ -48,6 +48,7 @@ def create_app():
     from routes.records import records_bp, dashboard_bp, farmers_bp
     from routes.export import export_bp
     from routes.settings import settings_bp
+    from routes.batches import batches_bp
 
     app.register_blueprint(auth_bp,      url_prefix="/api/auth")
     app.register_blueprint(predict_bp,   url_prefix="/api/predict")
@@ -57,6 +58,7 @@ def create_app():
     app.register_blueprint(farmers_bp,   url_prefix="/api/farmers")
     app.register_blueprint(export_bp,    url_prefix="/api/export")
     app.register_blueprint(settings_bp,  url_prefix="/api/settings")
+    app.register_blueprint(batches_bp,   url_prefix="/api/batches")
 
     # ── Health check ────────────────────────────────────────────────────────
     @app.get("/api/health")

@@ -78,6 +78,39 @@ class Farmer(db.Model):
         }
 
 
+class UploadBatch(db.Model):
+    __tablename__ = "upload_batches"
+
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.String(100), unique=True, nullable=False)
+    file_name = db.Column(db.String(255))
+    session_name = db.Column(db.String(255))
+    upload_date = db.Column(db.Date)
+    shift = db.Column(db.Enum("morning", "evening"))
+    total_records = db.Column(db.Integer, default=0)
+    accepted = db.Column(db.Integer, default=0)
+    rejected = db.Column(db.Integer, default=0)
+    fraud_alerts = db.Column(db.Integer, default=0)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "batch_id": self.batch_id,
+            "file_name": self.file_name,
+            "session_name": self.session_name,
+            "upload_date": self.upload_date.isoformat() if self.upload_date else None,
+            "shift": self.shift,
+            "total_records": self.total_records,
+            "accepted": self.accepted,
+            "rejected": self.rejected,
+            "fraud_alerts": self.fraud_alerts,
+            "uploaded_by": self.uploaded_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class MilkRecord(db.Model):
     __tablename__ = "milk_records"
 
@@ -113,6 +146,9 @@ class MilkRecord(db.Model):
 
     # Meta
     entry_type = db.Column(db.Enum("upload", "manual"), default="manual")
+    upload_type = db.Column(db.String(50), default="bulk")
+    session_name = db.Column(db.String(255))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
     entered_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -144,6 +180,9 @@ class MilkRecord(db.Model):
             "ml_prediction": self.ml_prediction,
             "ml_confidence": float(self.ml_confidence) if self.ml_confidence else None,
             "entry_type": self.entry_type,
+            "upload_type": self.upload_type,
+            "session_name": self.session_name,
+            "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 

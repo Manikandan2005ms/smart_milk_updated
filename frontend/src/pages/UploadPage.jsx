@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileSpreadsheet, X, CheckCircle, XCircle, AlertTriangle, Loader2, Info, ShieldAlert } from 'lucide-react'
+import { Upload, FileSpreadsheet, X, CheckCircle, XCircle, AlertTriangle, Loader2, Info, ShieldAlert, FileText } from 'lucide-react'
 import api from '../utils/api'
 import toast from 'react-hot-toast'
 
 function DecisionBadge({ decision }) {
-  const c = { accept: 'badge-accept', reject: 'badge-reject', manual_check: 'badge-manual' }[decision]
-  const label = { accept: 'Accept', reject: 'Reject', manual_check: 'Manual' }[decision]
+  const c = { accept: 'badge-accept', reject: 'badge-reject' }[decision]
+  const label = { accept: 'Accept', reject: 'Reject' }[decision]
   return <span className={`${c} whitespace-nowrap`}>{label}</span>
 }
 
@@ -16,6 +17,8 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState(null)
+  const [sessionName, setSessionName] = useState('')
+  const navigate = useNavigate()
 
   const onDrop = useCallback(files => {
     const f = files[0]
@@ -43,6 +46,7 @@ export default function UploadPage() {
     setProgress(10)
     const fd = new FormData()
     fd.append('file', file)
+    if (sessionName) fd.append('session_name', sessionName)
     try {
       setProgress(40)
       const r = await api.post('/upload', fd, {
@@ -98,6 +102,21 @@ export default function UploadPage() {
           )}
         </div>
       </div>
+      
+      {file && (
+        <div className="card p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wider">Session Name (Optional)</label>
+            <input 
+              type="text" 
+              className="input text-sm w-full" 
+              placeholder="e.g. Morning Collection - North Zone" 
+              value={sessionName} 
+              onChange={e => setSessionName(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
       {file && (
         <div className="flex flex-col sm:flex-row gap-3">
@@ -143,12 +162,11 @@ export default function UploadPage() {
             className="space-y-5 sm:space-y-6"
           >
             {/* Summary cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
               {[
                 { label: 'Total Rows',    value: result.total_rows,    color: 'text-slate-900 dark:text-white', bg: 'bg-slate-100 dark:bg-slate-800' },
                 { label: 'Accepted',      value: result.accepted,      color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
                 { label: 'Rejected',      value: result.rejected,      color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
-                { label: 'Manual Check',  value: result.manual_check,  color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20' },
               ].map(s => (
                 <div key={s.label} className={`card p-4 sm:p-5 text-center flex flex-col items-center justify-center`}>
                   <p className={`text-2xl sm:text-3xl font-black ${s.color}`}>{s.value}</p>
@@ -216,6 +234,14 @@ export default function UploadPage() {
                   </div>
                 )}
               </div>
+            </div>
+            
+            <div className="flex justify-end pt-2">
+              <button onClick={() => navigate(`/records?batch_id=${result.batch_id}`)}
+                className="btn-primary flex items-center justify-center gap-2 px-8 py-3">
+                <FileText size={18}/>
+                <span className="font-bold uppercase tracking-wider text-xs">View Full Batch Records</span>
+              </button>
             </div>
           </motion.div>
         )}

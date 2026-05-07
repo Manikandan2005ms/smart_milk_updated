@@ -59,19 +59,6 @@ def make_accept_sample():
     }
 
 
-def make_manual_check_sample():
-    s = make_accept_sample()
-    # Introduce mild issues
-    choice = rng.integers(0, 3)
-    if choice == 0:
-        s["temperature"] = rng.uniform(10.1, 15)
-    elif choice == 1:
-        s["mbrt"] = rng.uniform(2.0, 3.0)
-    else:
-        s["fat"] = rng.choice([rng.uniform(2.8, 3.19), rng.uniform(3.51, 3.8)])
-    return s
-
-
 def make_reject_sample():
     s = make_accept_sample()
     choice = rng.integers(0, 6)
@@ -94,8 +81,7 @@ def generate_dataset(n_per_class: int = 2000):
     X, y = [], []
     generators = [
         (make_accept_sample, 0),
-        (make_manual_check_sample, 1),
-        (make_reject_sample, 2),
+        (make_reject_sample, 1),
     ]
     for gen, label in generators:
         for _ in range(n_per_class):
@@ -132,7 +118,7 @@ def train():
     clf.fit(X_train_sc, y_train)
     preds = clf.predict(X_test_sc)
     log.info("\n" + classification_report(
-        y_test, preds, target_names=["accept", "manual_check", "reject"]
+        y_test, preds, target_names=["accept", "reject"]
     ))
 
     log.info("Training IsolationForest …")

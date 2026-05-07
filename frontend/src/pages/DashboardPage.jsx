@@ -6,12 +6,12 @@ import {
 } from 'recharts'
 import {
   CheckCircle2, XCircle, AlertTriangle, ShieldAlert,
-  Sunrise, Moon, TrendingUp, Users2
+  Sunrise, Moon, TrendingUp, Users2, Calendar, RefreshCcw
 } from 'lucide-react'
 import api from '../utils/api'
 import { useTheme } from '../context/ThemeContext'
 
-const COLORS = { accept: '#10b981', reject: '#ef4444', manual_check: '#f59e0b' }
+const COLORS = { accept: '#10b981', reject: '#ef4444' }
 
 function StatCard({ label, value, icon: Icon, color, sub, theme }) {
   const isDark = theme === 'dark'
@@ -42,17 +42,62 @@ function StatCard({ label, value, icon: Icon, color, sub, theme }) {
 export default function DashboardPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState('')
+  const [batchesList, setBatchesList] = useState([])
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
+  const todayStr = new Date().toISOString().split('T')[0]
+  const [filters, setFilters] = useState({ date: todayStr, shift: 'Full Day', batch_id: '' })
+
+  const fetchDashboard = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+
+    try {
+      const params = new URLSearchParams()
+      if (filters.date) params.append('date', filters.date)
+      if (filters.shift) params.append('shift', filters.shift)
+      if (filters.batch_id) params.append('batch_id', filters.batch_id)
+
+      const res = await api.get(`/dashboard?${params}`)
+      setData(res.data)
+      setLastUpdated(new Date().toLocaleTimeString())
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
   useEffect(() => {
-    api.get('/dashboard')
-      .then(r => setData(r.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    api.get('/batches?per_page=20').then(r => setBatchesList(r.data.batches)).catch(e => console.error(e))
   }, [])
 
-  if (loading) return (
+  useEffect(() => {
+    fetchDashboard()
+    // Set up auto-refresh interval (e.g., every 30 seconds for live updates)
+    const interval = setInterval(() => {
+      fetchDashboard(true)
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [filters])
+
+  const setFilter = (k, v) => setFilters(p => {
+    const updated = { ...p, [k]: v }
+    // If batch is selected, clear date/shift. If date/shift changed, clear batch
+    if (k === 'batch_id' && v) {
+      updated.date = ''
+      updated.shift = ''
+    } else if (k === 'date' || k === 'shift') {
+      updated.batch_id = ''
+    }
+    return updated
+  })
+
+  if (loading && !data) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-2 border-milk-500 border-t-transparent rounded-full animate-spin" />
     </div>
@@ -62,9 +107,8 @@ export default function DashboardPage() {
   const pieData = [
     { name: 'Accepted', value: kpis.accepted || 0 },
     { name: 'Rejected', value: kpis.rejected || 0 },
-    { name: 'Manual Check', value: kpis.manual_check || 0 },
   ]
-  const pieColors = ['#10b981', '#ef4444', '#f59e0b']
+  const pieColors = ['#10b981', '#ef4444']
 
   const trend = (data?.daily_trend || []).slice(-14)
 
@@ -80,23 +124,85 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+    <div className="space-y-4 sm:space-y-6 pb-10">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Dashboard Overview</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5">Live milk quality metrics and analytics</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            Dashboard Overview
+            {refreshing && <RefreshCcw size={16} className="animate-spin text-milk-500" />}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5 flex items-center gap-2">
+            Live milk quality metrics and analytics 
+            {lastUpdated && <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Updated: {lastUpdated}</span>}
+          </p>
         </div>
-        <div className="text-[10px] font-bold text-milk-600 dark:text-milk-400 bg-milk-50 dark:bg-milk-900/30 px-3 py-1 rounded-full border border-milk-100 dark:border-milk-800 w-fit">
-          LIVE UPDATES ENABLED
+        
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+          <div className="relative">
+            <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+            <input type="date" className="input pl-9 text-xs py-2 h-9 border-none bg-slate-50 dark:bg-slate-800" value={filters.date}
+              onChange={e => setFilter('date', e.target.value)} disabled={!!filters.batch_id}/>
+          </div>
+          <select className="select text-xs py-2 h-9 border-none bg-slate-50 dark:bg-slate-800" value={filters.shift}
+            onChange={e => setFilter('shift', e.target.value)} disabled={!!filters.batch_id}>
+            <option value="Full Day">Full Day Summary</option>
+            <option value="Morning">Morning Shift</option>
+            <option value="Evening">Evening Shift</option>
+          </select>
+          <div className="w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+          <select className="select text-xs py-2 h-9 border-none bg-slate-50 dark:bg-slate-800 sm:w-48" value={filters.batch_id}
+            onChange={e => setFilter('batch_id', e.target.value)}>
+            <option value="">Live Session (Filter Date)</option>
+            <optgroup label="Historical Batches">
+              {batchesList.map(b => (
+                <option key={b.batch_id} value={b.batch_id}>{b.session_name || b.batch_id} ({b.total_records})</option>
+              ))}
+            </optgroup>
+          </select>
         </div>
       </div>
+
+      {/* Session Cards */}
+      {!filters.batch_id && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { mode: 'Morning', icon: Sunrise, color: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-900/20' },
+            { mode: 'Evening', icon: Moon, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+            { mode: 'Full Day', icon: TrendingUp, color: 'text-milk-500', bg: 'bg-milk-50 dark:bg-milk-900/20' },
+          ].map(s => (
+            <button key={s.mode} onClick={() => setFilter('shift', s.mode)}
+              className={`p-4 rounded-2xl flex items-center gap-4 transition-all border ${filters.shift === s.mode ? 'border-milk-500 shadow-md ring-1 ring-milk-500' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'} bg-white dark:bg-slate-900`}>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${s.bg}`}>
+                <s.icon size={24} className={s.color} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider">{s.mode === 'Full Day' ? 'Full Day Summary' : `Today ${s.mode}`}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">{filters.shift === s.mode ? 'Active View' : 'Click to View'}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filters.batch_id && (
+        <div className="bg-milk-50 dark:bg-milk-900/20 border border-milk-200 dark:border-milk-800 p-4 rounded-2xl flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-milk-500 text-white flex items-center justify-center font-black">
+            B
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-800 dark:text-white">Viewing Historical Batch</p>
+            <p className="text-xs font-medium text-slate-500 font-mono mt-0.5">{filters.batch_id}</p>
+          </div>
+          <button onClick={() => setFilter('batch_id', '')} className="ml-auto btn-secondary text-xs px-4 py-2">Return to Live View</button>
+        </div>
+      )}
 
       {/* KPI rows */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard theme={theme} label="Total Records" value={kpis.total} icon={TrendingUp} color="text-milk-600 dark:text-milk-400" sub={`${data?.accept_rate}% acceptance`} />
         <StatCard theme={theme} label="Accepted" value={kpis.accepted} icon={CheckCircle2} color="text-emerald-600 dark:text-emerald-400" sub="Passed checks" />
         <StatCard theme={theme} label="Rejected" value={kpis.rejected} icon={XCircle} color="text-red-600 dark:text-red-400" sub="Failures" />
-        <StatCard theme={theme} label="Manual Check" value={kpis.manual_check} icon={AlertTriangle} color="text-amber-600 dark:text-amber-400" sub="Needs verification" />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard theme={theme} label="Fraud High" value={kpis.fraud_high} icon={ShieldAlert} color="text-red-600 dark:text-red-400" sub="High risk" />
@@ -169,8 +275,6 @@ export default function DashboardPage() {
                 stroke="#10b981" fill="url(#gAccept)" strokeWidth={2.5} />
               <Area type="monotone" dataKey="reject" name="Reject"
                 stroke="#ef4444" fill="url(#gReject)" strokeWidth={2.5} />
-              <Area type="monotone" dataKey="manual_check" name="Manual"
-                stroke="#f59e0b" fill="none" strokeWidth={1.5} strokeDasharray="4 4" />
             </AreaChart>
           </ResponsiveContainer>
         </div>

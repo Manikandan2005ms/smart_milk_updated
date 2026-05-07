@@ -12,6 +12,7 @@ import FarmersPage from './pages/FarmersPage'
 import FarmerDetailPage from './pages/FarmerDetailPage'
 import SettingsPage from './pages/SettingsPage'
 import ReportsPage from './pages/ReportsPage'
+import UploadHistoryPage from './pages/UploadHistoryPage'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -54,6 +55,7 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace/>}/>
             <Route path="dashboard"      element={<DashboardPage/>}/>
             <Route path="upload"         element={<UploadPage/>}/>
+            <Route path="upload-history" element={<UploadHistoryPage/>}/>
             <Route path="manual-entry"   element={<ManualEntryPage/>}/>
             <Route path="records"        element={<RecordsPage/>}/>
             <Route path="farmers"        element={<FarmersPage/>}/>
